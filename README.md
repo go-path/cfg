@@ -1,2 +1,4 @@
 # cfg
-Configurações para projetos Go simplificado
+
+Simplified settings for Go projects
+
