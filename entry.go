@@ -13,7 +13,6 @@ const (
 
 // Entry todas as propriedades são mapeadas para um tipo de dado abaixo, afim de respeitar corretamente
 // a integração com Json
-//
 type Entry struct {
 	kind  EntryKind // Tipagem do valor
 	value any       // Valor salvo (bool, float64, string, []*Entry, map[string]*Entry)
@@ -110,8 +109,10 @@ func (e *Entry) Walk(visitor func(*Entry)) {
 			entry.Walk(visitor)
 		}
 	default:
-		for _, entry := range e.value.(map[string]*Entry) {
-			entry.Walk(visitor)
+		if e.value != nil {
+			for _, entry := range e.value.(map[string]*Entry) {
+				entry.Walk(visitor)
+			}
 		}
 	}
 }

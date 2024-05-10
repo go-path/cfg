@@ -22,7 +22,7 @@ func (c *Env) SetFileSystem(fs FileSystem) {
 }
 
 // SetFilePaths define o caminho dos arquivos de configuração.
-func (c *Env) SetFilePaths(filePaths []string) {
+func (c *Env) SetFilePaths(filePaths ...string) {
 	c.filePaths = filePaths
 }
 

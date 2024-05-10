@@ -3,6 +3,7 @@ package cfg
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -197,6 +198,34 @@ func (c *Env) Clone() *Env {
 	o := New()
 	o.root = c.root.Clone()
 	return o
+}
+
+func (c *Env) Keys(key string) []string {
+	unlock := c.lock(true)
+	defer unlock()
+
+	entry := c.getEntryUnsafe(key)
+	if entry == nil {
+		return nil
+	}
+	switch entry.kind {
+	case BoolKind, StringKind, NumberKind:
+		return nil
+	case ArrayKind:
+		var list []string
+		value := entry.value.([]*Entry)
+		for i, _ := range value {
+			list = append(list, "["+strconv.Itoa(i)+"]")
+		}
+		return list
+	default:
+		var list []string
+		value := entry.value.(map[string]*Entry)
+		for k, _ := range value {
+			list = append(list, k)
+		}
+		return list
+	}
 }
 
 // Merge faz o merge de src na config atual

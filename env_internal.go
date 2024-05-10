@@ -8,23 +8,23 @@ import (
 )
 
 func (c *Env) get(key string) (any, bool) {
-	c.mutex.RLock()
+	unlock := c.lock(true)
 
 	if e, exist := c.cache[key]; exist { // 1st check
-		c.mutex.RUnlock()
+		unlock()
 		return e.value, e.exist
 	} else {
-		c.mutex.RUnlock()
+		unlock()
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	unlock = c.lock(false)
+	defer unlock()
 
 	if e, exist := c.cache[key]; exist { // 2nd (double) check
 		return e.value, e.exist
 	}
 
-	return c.getUnsafe(key)
+	return c.getValueUnsafe(key)
 }
 
 func (c *Env) set(key string, value any) {
@@ -112,8 +112,23 @@ func (c *Env) set(key string, value any) {
 	c.LoadObject(object)
 }
 
-// getUnsafe uso interno, chamada não bloqueante. Só usar quando o controle de acesso asíncrono estiver ativo, ver método get.
-func (c *Env) getUnsafe(key string) (any, bool) {
+func (c *Env) getStringUnsafe(key string) string {
+	if v, exist := c.getValueUnsafe(key); !exist || v == nil {
+		return ""
+	} else {
+		switch s := v.(type) {
+		case string:
+			return s
+		case []string:
+			return strings.Join(s, ",")
+		default:
+			return fmt.Sprintf("%v", s)
+		}
+	}
+}
+
+// getValueUnsafe uso interno, chamada não bloqueante. Só usar quando o controle de acesso asíncrono estiver ativo, ver método get.
+func (c *Env) getValueUnsafe(key string) (any, bool) {
 
 	if e, exist := c.cache[key]; exist {
 		return e.value, e.exist
@@ -180,19 +195,52 @@ func (c *Env) getUnsafe(key string) (any, bool) {
 	return value, exist
 }
 
-func (c *Env) getStringUnsafe(key string) string {
-	if v, exist := c.getUnsafe(key); !exist || v == nil {
-		return ""
-	} else {
-		switch s := v.(type) {
-		case string:
-			return s
-		case []string:
-			return strings.Join(s, ",")
-		default:
-			return fmt.Sprintf("%v", s)
+// getEntryUnsafe uso interno, chamada não bloqueante.
+// Só usar quando o controle de acesso asíncrono estiver ativo, ver método get.
+func (c *Env) getEntryUnsafe(key string) *Entry {
+
+	entry := c.root
+	parts := strings.Split(key, ".")
+	for _, pkey := range parts {
+		// "prop.array[0]" => pkey = "array[0]"
+		if strings.HasSuffix(pkey, "]") {
+			// array index
+			pts := strings.Split(pkey, "[")
+			if len(pts) != 2 {
+				// formato inválido, espera "prop.array[0]"
+				return nil
+			} else if entry.kind != ObjectKind || entry.value == nil {
+				// entry não é objeto, portanto não pode existir um filho do tipo array
+				return nil
+			} else if arrEntry, ok := (entry.value.(map[string]*Entry))[pts[0]]; !ok {
+				// objeto não existe
+				break
+			} else if arrEntry.kind != ArrayKind || arrEntry.value == nil {
+				// tipo de dado não é array ou é array vazio
+				return nil
+			} else if idx, err := strconv.Atoi(strings.TrimSuffix(pts[1], "]")); err != nil {
+				// índice não é número
+				return nil
+			} else if idx < 0 {
+				// não aceita índice negativo
+				return nil
+			} else if arr := arrEntry.value.([]*Entry); (len(arr) - 1) < idx {
+				// array não possui objeto com o índice informado
+				return nil
+			} else {
+				entry = arr[idx]
+			}
+		} else if entry.kind != ObjectKind || entry.value == nil {
+			// entry não é objeto, portanto não pode existir um filho com a key informada
+			return nil
+		} else if e, ok := (entry.value.(map[string]*Entry))[pkey]; !ok {
+			return nil
+		} else {
+			entry = e
 		}
 	}
+
+	return entry
 }
 
 // expand replaces ${var} or $var in the strings based on the mapping function.
@@ -212,6 +260,22 @@ func (c *Env) expand(e *Entry) {
 	case ObjectKind:
 		for _, entry := range e.value.(map[string]*Entry) {
 			c.expand(entry)
+		}
+	}
+}
+
+func (c *Env) lock(read bool) func() {
+	if read {
+		c.mutex.RLock()
+	} else {
+		c.mutex.Lock()
+	}
+
+	return func() {
+		if read {
+			c.mutex.RUnlock()
+		} else {
+			c.mutex.Unlock()
 		}
 	}
 }
