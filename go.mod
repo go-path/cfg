@@ -1,3 +1,3 @@
-module github.com/nidorx/cfg
+module github.com/go-path/cfg
 
 go 1.20
