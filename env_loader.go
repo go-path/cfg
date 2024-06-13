@@ -178,6 +178,12 @@ func (c *Env) LoadFiles() error {
 	return nil
 }
 
+// Profiles get active profiles
+func (c *Env) Profiles() []string {
+	profiles := c.String(c.profileKey)
+	return strings.Split(profiles, ",")
+}
+
 // LoadProfiles processa arquivos de configuração (config.json)
 func (c *Env) LoadProfiles() error {
 	profiles := c.String(c.profileKey)
