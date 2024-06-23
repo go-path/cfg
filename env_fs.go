@@ -8,6 +8,7 @@ import (
 	"path"
 )
 
+// FileSystem Represents access to the file system.
 type FileSystem interface {
 	Exists(filepath string) (bool, error)
 	Read(filepath string) ([]byte, error)
@@ -21,9 +22,7 @@ func defaultFileSystem() (*defaultFs, error) {
 	if pwd, err := os.Getwd(); err != nil {
 		return nil, err
 	} else {
-		return &defaultFs{
-			root: pwd,
-		}, nil
+		return &defaultFs{root: pwd}, nil
 	}
 }
 

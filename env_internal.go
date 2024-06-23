@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -32,13 +33,13 @@ func (c *Env) set(key string, value any) {
 	indexOpenBracket := strings.IndexByte(key, '[')
 
 	if indexOpenBracket == 0 {
-		c.logger.Warn("invalid config key. { key: %s }", key)
+		slog.Warn("[cfg] invalid config key.", slog.String("key", key))
 		return
 	}
 
-	object := map[string]interface{}{}
+	object := map[string]any{}
 	var segment string
-	var prev map[string]interface{}
+	var prev map[string]any
 	var curr = object
 
 	if indexOpenBracket == -1 {
@@ -46,7 +47,7 @@ func (c *Env) set(key string, value any) {
 
 		if strings.IndexByte(key, ']') >= 0 {
 			// "prop.array0]"
-			c.logger.Warn("invalid brackets in config key. { key: %s }", key)
+			slog.Warn("[cfg] invalid brackets in config key.", slog.String("key", key))
 			return
 		}
 
@@ -54,20 +55,20 @@ func (c *Env) set(key string, value any) {
 			segment = strings.TrimSpace(segment)
 			if segment == "" {
 				// "prop..value" || "prop. .value"
-				c.logger.Warn("invalid config key. { key: %s }", key)
+				slog.Warn("[cfg] invalid config key.", slog.String("key", key))
 				return
 			}
 
 			prev = curr
-			curr[segment] = map[string]interface{}{}
-			curr = curr[segment].(map[string]interface{})
+			curr[segment] = map[string]any{}
+			curr = curr[segment].(map[string]any)
 		}
 
 	} else {
 		// complex key (array)
 		if strings.IndexByte(key, ']') == -1 {
 			// "prop.array[0"
-			c.logger.Warn("invalid brackets in config key. { key: %s }", key)
+			slog.Warn("[cfg] invalid brackets in config key.", slog.String("key", key))
 			return
 		}
 
@@ -75,7 +76,7 @@ func (c *Env) set(key string, value any) {
 			segment = strings.TrimSpace(segment)
 			if segment == "" {
 				// "prop..value" || "prop. .value"
-				c.logger.Warn("invalid config key. { key: %s }", key)
+				slog.Warn("[cfg] invalid config key.", slog.String("key", key), slog.String("segment", segment))
 				return
 			}
 
@@ -84,7 +85,7 @@ func (c *Env) set(key string, value any) {
 
 			if indexOpen == 0 || (indexOpen >= 0 && indexOpen != len(segment)-1) {
 				// "prop.[0]" || "prop.array[0]text"
-				c.logger.Warn("invalid brackets in config key. { key: %s, part: %s }", key, segment)
+				slog.Warn("[cfg] invalid brackets in config key.", slog.String("key", key), slog.String("segment", segment))
 				return
 			}
 
@@ -92,7 +93,7 @@ func (c *Env) set(key string, value any) {
 
 			if indexOpen != indexClose && indexClose-indexOpen < 0 {
 				// "prop.array[0" || "prop.array0]"  || "prop.array0]tex[t" || "prop.array[]"
-				c.logger.Warn("invalid brackets in config key. { key: %s, part: %s }", key, segment)
+				slog.Warn("[cfg] invalid brackets in config key.", slog.String("key", key), slog.String("segment", segment))
 				return
 			}
 
@@ -100,8 +101,8 @@ func (c *Env) set(key string, value any) {
 
 			} else {
 				prev = curr
-				curr[segment] = map[string]interface{}{}
-				curr = curr[segment].(map[string]interface{})
+				curr[segment] = map[string]any{}
+				curr = curr[segment].(map[string]any)
 			}
 
 		}
@@ -127,7 +128,8 @@ func (c *Env) getStringUnsafe(key string) string {
 	}
 }
 
-// getValueUnsafe uso interno, chamada não bloqueante. Só usar quando o controle de acesso asíncrono estiver ativo, ver método get.
+// getValueUnsafe internal use, non-blocking call. Only use
+// when asynchronous access control is active, see get method.
 func (c *Env) getValueUnsafe(key string) (any, bool) {
 
 	if e, exist := c.cache[key]; exist {
@@ -144,50 +146,10 @@ func (c *Env) getValueUnsafe(key string) (any, bool) {
 		c.cache[key] = &cacheEntry{value: value, exist: exist}
 	}()
 
-	entry := c.root
-	parts := strings.Split(key, ".")
-	for _, pkey := range parts {
-		// "prop.array[0]" => pkey = "array[0]"
-		if strings.HasSuffix(pkey, "]") {
-			// array index
-			pts := strings.Split(pkey, "[")
-			if len(pts) != 2 {
-				// formato inválido, espera "prop.array[0]"
-				return nil, false
-			} else if entry.kind != ObjectKind || entry.value == nil {
-				// entry não é objeto, portanto não pode existir um filho do tipo array
-				return nil, false
-			} else if arrEntry, ok := (entry.value.(map[string]*Entry))[pts[0]]; !ok {
-				// objeto não existe
-				break
-			} else if arrEntry.kind != ArrayKind || arrEntry.value == nil {
-				// tipo de dado não é array ou é array vazio
-				return nil, false
-			} else if idx, err := strconv.Atoi(strings.TrimSuffix(pts[1], "]")); err != nil {
-				// índice não é número
-				return nil, false
-			} else if idx < 0 {
-				// não aceita índice negativo
-				return nil, false
-			} else if arr := arrEntry.value.([]*Entry); (len(arr) - 1) < idx {
-				// array não possui objeto com o índice informado
-				return nil, false
-			} else {
-				entry = arr[idx]
-			}
-		} else if entry.kind != ObjectKind || entry.value == nil {
-			// entry não é objeto, portanto não pode existir um filho com a key informada
-			return nil, false
-		} else if e, ok := (entry.value.(map[string]*Entry))[pkey]; !ok {
-			return nil, false
-		} else {
-			entry = e
-		}
-	}
+	entry := c.getEntryUnsafe(key)
 
 	if entry != nil {
 		exist = true
-
 		// lazy string evaluation
 		c.expand(entry)
 		value = entry.Value()
@@ -195,8 +157,8 @@ func (c *Env) getValueUnsafe(key string) (any, bool) {
 	return value, exist
 }
 
-// getEntryUnsafe uso interno, chamada não bloqueante.
-// Só usar quando o controle de acesso asíncrono estiver ativo, ver método get.
+// getEntryUnsafe internal use, non-blocking call. Only use
+// when asynchronous access control is active, see get method.
 func (c *Env) getEntryUnsafe(key string) *Entry {
 
 	entry := c.root
@@ -207,31 +169,31 @@ func (c *Env) getEntryUnsafe(key string) *Entry {
 			// array index
 			pts := strings.Split(pkey, "[")
 			if len(pts) != 2 {
-				// formato inválido, espera "prop.array[0]"
+				// invalid format, expects "prop.array[0]"
 				return nil
 			} else if entry.kind != ObjectKind || entry.value == nil {
-				// entry não é objeto, portanto não pode existir um filho do tipo array
+				// entry is not an object, so there cannot be a child of the array type
 				return nil
 			} else if arrEntry, ok := (entry.value.(map[string]*Entry))[pts[0]]; !ok {
-				// objeto não existe
+				// object does not exist
 				break
 			} else if arrEntry.kind != ArrayKind || arrEntry.value == nil {
-				// tipo de dado não é array ou é array vazio
+				// data type is not array or is empty array
 				return nil
 			} else if idx, err := strconv.Atoi(strings.TrimSuffix(pts[1], "]")); err != nil {
-				// índice não é número
+				// index is not number
 				return nil
 			} else if idx < 0 {
-				// não aceita índice negativo
+				// does not accept negative index
 				return nil
 			} else if arr := arrEntry.value.([]*Entry); (len(arr) - 1) < idx {
-				// array não possui objeto com o índice informado
+				// array does not have an object with the given index
 				return nil
 			} else {
 				entry = arr[idx]
 			}
 		} else if entry.kind != ObjectKind || entry.value == nil {
-			// entry não é objeto, portanto não pode existir um filho com a key informada
+			// entry is not an object, therefore there cannot be a child with the given key
 			return nil
 		} else if e, ok := (entry.value.(map[string]*Entry))[pkey]; !ok {
 			return nil
@@ -251,12 +213,10 @@ func (c *Env) expand(e *Entry) {
 			// replaces ${var} or $var in the string
 			e.value = os.Expand(e.expr, c.getStringUnsafe)
 		}
-		break
 	case ArrayKind:
 		for _, entry := range e.value.([]*Entry) {
 			c.expand(entry)
 		}
-		break
 	case ObjectKind:
 		for _, entry := range e.value.(map[string]*Entry) {
 			c.expand(entry)

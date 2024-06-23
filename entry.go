@@ -1,6 +1,8 @@
 package cfg
 
-// EntryKind representa os tipos de dados suportados na configuração, afim de manter compatibilidade total com arquivos JSON
+// EntryKind represents the data types supported in the
+// configuration, in order to maintain full compatibility
+// with JSON files
 type EntryKind uint
 
 const (
@@ -11,12 +13,12 @@ const (
 	ObjectKind                  // map[string]*Entry{}, for JSON objects
 )
 
-// Entry todas as propriedades são mapeadas para um tipo de dado abaixo, afim de respeitar corretamente
-// a integração com Json
+// Entry all properties are mapped to a data type below,
+// in order to correctly respect the integration with Json
 type Entry struct {
-	kind  EntryKind // Tipagem do valor
-	value any       // Valor salvo (bool, float64, string, []*Entry, map[string]*Entry)
-	expr  string    // Quando string com expressão (${var} | $var)
+	kind  EntryKind // Value typing
+	value any       // Saved value (bool, float64, string, []*Entry, map[string]*Entry)
+	expr  string    // When string with expression (${var} | $var)
 }
 
 func (e *Entry) Kind() EntryKind {
@@ -44,12 +46,11 @@ func (e *Entry) Value() any {
 	}
 }
 
-// Merge faz a mesclagem de dois objetos
+// Merge merges two objects
 func (e *Entry) Merge(other *Entry) {
 	switch other.kind {
 	case BoolKind, StringKind, NumberKind, ArrayKind:
 		e.value = other.value
-		break
 	case ObjectKind:
 		if e.value == nil || e.kind != ObjectKind {
 			e.value = map[string]*Entry{}
@@ -69,11 +70,10 @@ func (e *Entry) Merge(other *Entry) {
 				dest.Merge(src)
 			}
 		}
-		break
 	}
 }
 
-// Clone faz um deep copy dessa entrada
+// Clone makes a deep copy of the entry
 func (e *Entry) Clone() *Entry {
 	other := &Entry{kind: e.kind, value: e.value, expr: e.expr}
 
@@ -84,7 +84,6 @@ func (e *Entry) Clone() *Entry {
 			value = append(value, entry.Clone())
 		}
 		other.value = value
-		break
 	case ObjectKind:
 		if e.value == nil {
 			break
@@ -94,7 +93,6 @@ func (e *Entry) Clone() *Entry {
 			value[key] = src.Clone()
 		}
 		other.value = value
-		break
 	}
 
 	return other

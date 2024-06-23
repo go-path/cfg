@@ -4,7 +4,7 @@ import (
 	"strconv"
 )
 
-// Float obtém um valor inteiro de uma config
+// Float get a floating value from a config
 func (c *Env) Float(key string, def ...float64) float64 {
 	if v := c.Get(key); v != nil {
 		return floatValue(v)
@@ -15,7 +15,7 @@ func (c *Env) Float(key string, def ...float64) float64 {
 	return 0
 }
 
-func floatValue(val interface{}) float64 {
+func floatValue(val any) float64 {
 	var value float64
 	switch t := val.(type) {
 	case float64:

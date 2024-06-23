@@ -159,44 +159,44 @@ func testNumbers(positive, zero, negative any) []testKW {
 }
 
 func TestEnv_Get(t *testing.T) {
-	env := New(map[string]interface{}{
+	env := New(map[string]any{
 		"# ignored": "",
-		"app": map[string]interface{}{
+		"app": map[string]any{
 			"name":        "My App",
 			"description": "${app.name} is a Syntax application",
 		},
-		"dev": map[string]interface{}{
+		"dev": map[string]any{
 			"port":       float64(8443),
 			"active":     true,
 			"debug":      true,
 			"livereload": true,
-			"watch": map[string]interface{}{
+			"watch": map[string]any{
 				"interval": float64(120),
 				"quiet":    float64(60),
-				"array": []interface{}{
-					map[string]interface{}{"id": float64(2)},
-					map[string]interface{}{"id": float64(4)},
+				"array": []any{
+					map[string]any{"id": float64(2)},
+					map[string]any{"id": float64(4)},
 				},
-				"names": []interface{}{"Darwin", "Gabriel", "Mara"},
+				"names": []any{"Darwin", "Gabriel", "Mara"},
 			},
 		},
 	})
 
 	// merge
-	env.LoadObject(map[string]interface{}{
-		"app": map[string]interface{}{
+	env.LoadObject(map[string]any{
+		"app": map[string]any{
 			"name":   "My Super App",
 			"author": "Alex Rodin",
 		},
-		"dev": map[string]interface{}{
+		"dev": map[string]any{
 			"livereload": false,
-			"watch": map[string]interface{}{
+			"watch": map[string]any{
 				"interval": float64(240),
-				"array": []interface{}{
-					map[string]interface{}{"id": float64(8)},
-					map[string]interface{}{"id": float64(16)},
+				"array": []any{
+					map[string]any{"id": float64(8)},
+					map[string]any{"id": float64(16)},
 				},
-				"names": []interface{}{"Darwin R.", "Gabriel R.", "Mara R.", "${app.author}"},
+				"names": []any{"Darwin R.", "Gabriel R.", "Mara R.", "${app.author}"},
 			},
 		},
 	})
@@ -212,7 +212,7 @@ func TestEnv_Get(t *testing.T) {
 		{key: "dev.watch.array[0].id", want: float64(8)},
 		{key: "dev.watch.array[1].id", want: float64(16)},
 		{key: "dev.watch.array[2].id", want: nil},
-		{key: "dev.watch.names", want: []interface{}{"Darwin R.", "Gabriel R.", "Mara R.", "Alex Rodin"}},
+		{key: "dev.watch.names", want: []any{"Darwin R.", "Gabriel R.", "Mara R.", "Alex Rodin"}},
 		{key: "dev.watch.names[0]", want: "Darwin R."},
 		{key: "dev.watch.names[1]", want: "Gabriel R."},
 		{key: "dev.watch.names[2]", want: "Mara R."},

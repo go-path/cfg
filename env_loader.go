@@ -1,20 +1,12 @@
 package cfg
 
 import (
-	"encoding/json"
+	"log/slog"
 	"os"
 	"strings"
 )
 
-type UnmarshalFn func(content []byte) (map[string]interface{}, error)
-
-func JsonUnmarshal(content []byte) (map[string]interface{}, error) {
-	var config map[string]interface{}
-	if errJson := json.Unmarshal(content, &config); errJson != nil {
-		return nil, errJson
-	}
-	return config, nil
-}
+type UnmarshalFn func(content []byte) (map[string]any, error)
 
 // SetFileSystem define a instância do FileSystem que será usado para carregamento
 func (c *Env) SetFileSystem(fs FileSystem) {
@@ -118,7 +110,7 @@ func (c *Env) LoadDotEnv() error {
 }
 
 func (c *Env) LoadEnviron(environ []string) {
-	config := map[string]interface{}{}
+	config := map[string]any{}
 	for _, env := range environ {
 		parts := strings.SplitN(env, "=", 2)
 		if len(parts) == 2 {
@@ -133,16 +125,16 @@ func (c *Env) LoadEnviron(environ []string) {
 				// @TODO: AQUI, GERAR O CONTEÚDO INTERNO USANDO A ESTRUTURA DA KEY
 				var lastKey string
 				parent := config
-				var current map[string]interface{}
+				var current map[string]any
 				for _, k := range strings.Split(key, ".") {
 					lastKey = k
 					if child, exist := parent[lastKey]; !exist {
-						parent[lastKey] = map[string]interface{}{}
+						parent[lastKey] = map[string]any{}
 					} else if _, isString := child.(string); isString {
-						parent[lastKey] = map[string]interface{}{}
+						parent[lastKey] = map[string]any{}
 					}
 					current = parent
-					parent = parent[lastKey].(map[string]interface{})
+					parent = parent[lastKey].(map[string]any)
 				}
 				current[lastKey] = value
 			}
@@ -208,7 +200,11 @@ func (c *Env) processFile(filepath string, unmarshal UnmarshalFn) error {
 	} else if content == nil {
 		return nil
 	} else if config, errUnmarshal := unmarshal(content); errUnmarshal != nil {
-		c.logger.Error("error processing file. { filepath: %s }", filepath, errUnmarshal)
+		slog.Error(
+			"[cfg] error processing file.",
+			slog.Any("error", errUnmarshal),
+			slog.String("filepath", filepath),
+		)
 		return errUnmarshal
 	} else {
 		c.LoadObject(config)
@@ -219,7 +215,11 @@ func (c *Env) processFile(filepath string, unmarshal UnmarshalFn) error {
 func (c *Env) loadFile(filepath string) ([]byte, error) {
 	if c.fs == nil {
 		if fs, err := defaultFileSystem(); err != nil {
-			c.logger.Error("could not create default FileSystem", err)
+			slog.Error(
+				"[cfg] could not create default FileSystem.",
+				slog.Any("error", err),
+				slog.String("filepath", filepath),
+			)
 			return nil, err
 		} else {
 			c.fs = fs
@@ -227,12 +227,20 @@ func (c *Env) loadFile(filepath string) ([]byte, error) {
 	}
 
 	if exist, errFsExists := c.fs.Exists(filepath); errFsExists != nil {
-		c.logger.Error("file cannot be loaded. { filepath: %s }", filepath, errFsExists)
+		slog.Error(
+			"[cfg] file cannot be loaded.",
+			slog.Any("error", errFsExists),
+			slog.String("filepath", filepath),
+		)
 		return nil, errFsExists
 	} else if exist {
-		c.logger.Info("loading file (%s)", filepath)
+		slog.Info("[cfg] loading file.", slog.String("filepath", filepath))
 		if content, errFsRead := c.fs.Read(filepath); errFsRead != nil {
-			c.logger.Error("file cannot be loaded. { filepath: %s }", filepath, errFsRead)
+			slog.Error(
+				"[cfg] file cannot be loaded.",
+				slog.Any("error", errFsRead),
+				slog.String("filepath", filepath),
+			)
 			return nil, errFsRead
 		} else {
 			return content, nil

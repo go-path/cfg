@@ -3,6 +3,7 @@ package cfg
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,25 +16,27 @@ type cacheEntry struct {
 	exist bool
 }
 
-// Env propriedades de configuração de um site ou globais.
+// Env global instance.
 type Env struct {
 	mutex      sync.RWMutex
 	fs         FileSystem
 	root       *Entry
 	cache      map[string]*cacheEntry
-	logger     Logger
 	fileExts   map[string]UnmarshalFn
 	filePaths  []string
 	profileKey string
 }
 
-// New 6) Default config
+// New default config
 func New(defaults ...O) *Env {
 	config := &Env{
-		root:       &Entry{kind: ObjectKind, value: map[string]*Entry{}},
-		cache:      map[string]*cacheEntry{},
-		logger:     defaultLogger(),
-		fileExts:   map[string]UnmarshalFn{"json": JsonUnmarshal},
+		root:  &Entry{kind: ObjectKind, value: map[string]*Entry{}},
+		cache: map[string]*cacheEntry{},
+		fileExts: map[string]UnmarshalFn{
+			"json": JsonUnmarshal,
+			"yml":  YamlUnmarshal,
+			"yaml": YamlUnmarshal,
+		},
 		filePaths:  []string{"config"},
 		profileKey: "profiles",
 	}
@@ -89,6 +92,7 @@ func (c *Env) String(key string, def ...string) string {
 	return c.toString(v, def...)
 }
 
+// Strings get a string array values
 func (c *Env) Strings(key string, def ...[]string) []string {
 	v := c.Get(key)
 	if v == nil {
@@ -98,7 +102,7 @@ func (c *Env) Strings(key string, def ...[]string) []string {
 		return []string{}
 	}
 	switch s := v.(type) {
-	case []interface{}:
+	case []any:
 		var list []string
 		for _, it := range s {
 			list = append(list, c.toString(it))
@@ -117,16 +121,24 @@ func (c *Env) toString(v any, def ...string) string {
 			out = s
 		case float64:
 			out = fmt.Sprintf("%v", s)
-		case map[string]interface{}:
+		case map[string]any:
 			if b, err := json.Marshal(s); err != nil {
-				c.logger.Warn("cannot convert value to string using json.Marshal", s, err)
+				slog.Warn(
+					"[cfg] cannot convert value to string using json.Marshal",
+					slog.Any("error", err),
+					slog.Any("value", s),
+				)
 				out = strings.TrimPrefix(fmt.Sprintf("%#v", s), "map[string]interface {}")
 			} else {
 				out = string(b)
 			}
-		case []interface{}:
+		case []any:
 			if b, err := json.Marshal(s); err != nil {
-				c.logger.Error("cannot convert value to string using json.Marshal", s, err)
+				slog.Warn(
+					"[cfg] cannot convert value to string using json.Marshal",
+					slog.Any("error", err),
+					slog.Any("value", s),
+				)
 			} else {
 				out = string(b)
 			}
@@ -148,13 +160,18 @@ func (c *Env) toString(v any, def ...string) string {
 	return out
 }
 
-// Duration obtém uma duração da config
+// Duration get a duration from config
 func (c *Env) Duration(key string, def ...time.Duration) time.Duration {
 	value := c.String(key)
 	if out, err := time.ParseDuration(value); err == nil {
 		return out
 	} else {
-		c.logger.Error("could not be converted to time.Duration. { key: %s, value: %s }", key, value, err)
+		slog.Error(
+			"[cfg] could not be converted to time.Duration.",
+			slog.Any("error", err),
+			slog.String("key", key),
+			slog.String("value", value),
+		)
 		if len(def) > 0 {
 			return def[0]
 		}
@@ -162,7 +179,7 @@ func (c *Env) Duration(key string, def ...time.Duration) time.Duration {
 	}
 }
 
-// Time obtém uma duração da config
+// Time get a time from config
 func (c *Env) Time(key string, def ...time.Time) time.Time {
 	return c.TimeLayout(key, time.RFC3339, def...)
 }
@@ -179,13 +196,19 @@ func (c *Env) TimeOnly(key string, def ...time.Time) time.Time {
 	return c.TimeLayout(key, time.TimeOnly, def...)
 }
 
-// TimeLayout obtém uma duração da config
+// TimeLayout get a time.Time using a layout
 func (c *Env) TimeLayout(key string, layout string, def ...time.Time) time.Time {
 	value := c.String(key)
 	if out, err := time.Parse(layout, value); err == nil {
 		return out
 	} else {
-		c.logger.Error("could not be converted to time.Time. { key: %s, value: %s, layout:  }", key, value, layout, err)
+		slog.Error(
+			"[cfg] could not be converted to time.Time.",
+			slog.Any("error", err),
+			slog.String("key", key),
+			slog.String("value", value),
+			slog.String("layout", layout),
+		)
 		if len(def) > 0 {
 			return def[0]
 		}
@@ -214,21 +237,21 @@ func (c *Env) Keys(key string) []string {
 	case ArrayKind:
 		var list []string
 		value := entry.value.([]*Entry)
-		for i, _ := range value {
+		for i := range value {
 			list = append(list, "["+strconv.Itoa(i)+"]")
 		}
 		return list
 	default:
 		var list []string
 		value := entry.value.(map[string]*Entry)
-		for k, _ := range value {
+		for k := range value {
 			list = append(list, k)
 		}
 		return list
 	}
 }
 
-// Merge faz o merge de src na config atual
+// Merge merge src into the current config
 func (c *Env) Merge(src *Env) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
