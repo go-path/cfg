@@ -50,7 +50,11 @@ func (c *Env) Load() error {
 	profiles := c.String(c.profileKey)
 
 	// settings with priority over profiles
-	h := c.Clone()
+	h := New()
+	h.fs = c.fs
+	h.fileExts = c.fileExts
+	h.filePaths = c.filePaths
+	h.profileKey = c.profileKey
 
 	// 3) Operating system variables
 	h.LoadOsEnv()
