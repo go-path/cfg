@@ -51,7 +51,7 @@ func (c *Env) set(key string, value any) {
 			return
 		}
 
-		for _, segment = range strings.Split(key, ".") {
+		for _, segment = range Segments(key) {
 			segment = strings.TrimSpace(segment)
 			if segment == "" {
 				// "prop..value" || "prop. .value"
@@ -72,7 +72,7 @@ func (c *Env) set(key string, value any) {
 			return
 		}
 
-		for _, segment = range strings.Split(key, ".") {
+		for _, segment = range Segments(key) {
 			segment = strings.TrimSpace(segment)
 			if segment == "" {
 				// "prop..value" || "prop. .value"
@@ -162,8 +162,7 @@ func (c *Env) getValueUnsafe(key string) (any, bool) {
 func (c *Env) getEntryUnsafe(key string) *Entry {
 
 	entry := c.root
-	parts := strings.Split(key, ".")
-	for _, pkey := range parts {
+	for _, pkey := range Segments(key) {
 		// "prop.array[0]" => pkey = "array[0]"
 		if strings.HasSuffix(pkey, "]") {
 			// array index

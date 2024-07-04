@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type testKW struct {
+type testAny struct {
 	key  string
 	want any
 }
@@ -135,24 +135,24 @@ func init() {
 	}
 }
 
-func testNumbers(positive, zero, negative any) []testKW {
-	var values []testKW
+func testNumbers(positive, zero, negative any) []testAny {
+	var values []testAny
 	for _, name := range testSignedK {
-		values = append(values, testKW{key: name + ".neg", want: negative})
-		values = append(values, testKW{key: name + ".zero", want: zero})
-		values = append(values, testKW{key: name + ".pos", want: positive})
+		values = append(values, testAny{key: name + ".neg", want: negative})
+		values = append(values, testAny{key: name + ".zero", want: zero})
+		values = append(values, testAny{key: name + ".pos", want: positive})
 
-		values = append(values, testKW{key: "array." + name + "[0]", want: negative})
-		values = append(values, testKW{key: "array." + name + "[1]", want: zero})
-		values = append(values, testKW{key: "array." + name + "[2]", want: positive})
+		values = append(values, testAny{key: "array." + name + "[0]", want: negative})
+		values = append(values, testAny{key: "array." + name + "[1]", want: zero})
+		values = append(values, testAny{key: "array." + name + "[2]", want: positive})
 	}
 
 	for _, name := range testUnsignedK {
-		values = append(values, testKW{key: name + ".zero", want: zero})
-		values = append(values, testKW{key: name + ".pos", want: positive})
+		values = append(values, testAny{key: name + ".zero", want: zero})
+		values = append(values, testAny{key: name + ".pos", want: positive})
 
-		values = append(values, testKW{key: "array." + name + "[0]", want: zero})
-		values = append(values, testKW{key: "array." + name + "[1]", want: positive})
+		values = append(values, testAny{key: "array." + name + "[0]", want: zero})
+		values = append(values, testAny{key: "array." + name + "[1]", want: positive})
 	}
 
 	return values
@@ -290,7 +290,7 @@ func TestEnv_Merge(t *testing.T) {
 
 func TestEnv_Bool(t *testing.T) {
 	env := New(testConfig)
-	tests := []testKW{
+	tests := []testAny{
 		{key: "nil", want: false},
 		{key: "object", want: true},
 		{key: "bool.true", want: true},
@@ -321,7 +321,7 @@ func TestEnv_Bool(t *testing.T) {
 
 func TestEnv_String(t *testing.T) {
 	env := New(testConfig)
-	tests := []testKW{
+	tests := []testAny{
 		{key: "nil", want: ""},
 		{key: "bool.true", want: "true"},
 		{key: "bool.false", want: "false"},
@@ -414,7 +414,7 @@ func TestEnv_String(t *testing.T) {
 
 func TestEnv_Strings(t *testing.T) {
 	env := New(testConfig)
-	tests := []testKW{
+	tests := []testAny{
 		{key: "nil", want: []string{}},
 		{key: "bool.true", want: []string{"true"}},
 		{key: "bool.false", want: []string{"false"}},
@@ -507,7 +507,7 @@ func TestEnv_Strings(t *testing.T) {
 
 func TestEnv_Float(t *testing.T) {
 	env := New(testConfig)
-	tests := []testKW{
+	tests := []testAny{
 		{key: "nil", want: float64(0)},
 		{key: "object", want: float64(0)},
 		{key: "bool.true", want: float64(1)},
@@ -552,7 +552,7 @@ func TestEnv_Float(t *testing.T) {
 
 func TestEnv_Int(t *testing.T) {
 	env := New(testConfig)
-	tests := []testKW{
+	tests := []testAny{
 		{key: "nil", want: int(0)},
 		{key: "object", want: int(0)},
 		{key: "bool.true", want: int(1)},
@@ -597,7 +597,7 @@ func TestEnv_Int(t *testing.T) {
 
 func TestEnv_Duration(t *testing.T) {
 	env := New(testConfig)
-	tests := []testKW{
+	tests := []testAny{
 		{key: "nil", want: time.Millisecond * 0},
 		{key: "duration.milis", want: time.Millisecond * 300},
 		{key: "duration.hour", want: time.Hour*2 + time.Minute*45},
@@ -612,7 +612,7 @@ func TestEnv_Duration(t *testing.T) {
 	}
 
 	def := time.Millisecond * 5
-	testsDef := []testKW{
+	testsDef := []testAny{
 		{key: "nil", want: def},
 		{key: "duration.milis", want: time.Millisecond * 300},
 		{key: "duration.hour", want: time.Hour*2 + time.Minute*45},

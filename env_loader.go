@@ -130,7 +130,7 @@ func (c *Env) LoadEnviron(environ []string) {
 				var lastKey string
 				parent := config
 				var current map[string]any
-				for _, k := range strings.Split(key, ".") {
+				for _, k := range Segments(key) {
 					lastKey = k
 					if child, exist := parent[lastKey]; !exist {
 						parent[lastKey] = map[string]any{}
