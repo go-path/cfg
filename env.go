@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +20,7 @@ type cacheEntry struct {
 // Env global instance.
 type Env struct {
 	mutex      sync.RWMutex
-	fs         FileSystem
+	fs         http.FileSystem
 	root       *Entry
 	cache      map[string]*cacheEntry
 	fileExts   map[string]UnmarshalFn

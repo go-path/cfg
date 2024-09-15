@@ -1,7 +1,10 @@
 package cfg
 
 import (
+	"errors"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -9,7 +12,7 @@ import (
 type UnmarshalFn func(content []byte) (map[string]any, error)
 
 // SetFileSystem define a instância do FileSystem que será usado para carregamento
-func (c *Env) SetFileSystem(fs FileSystem) {
+func (c *Env) SetFileSystem(fs http.FileSystem) {
 	c.fs = fs
 }
 
@@ -230,25 +233,38 @@ func (c *Env) loadFile(filepath string) ([]byte, error) {
 		}
 	}
 
-	if exist, errFsExists := c.fs.Exists(filepath); errFsExists != nil {
+	certFile, errFsRead := c.fs.Open(filepath)
+	if errFsRead != nil {
+		if errors.Is(errFsRead, os.ErrNotExist) {
+			return nil, nil
+		}
 		slog.Error(
 			"[cfg] file cannot be loaded.",
-			slog.Any("error", errFsExists),
+			slog.Any("error", errFsRead),
 			slog.String("filepath", filepath),
 		)
-		return nil, errFsExists
-	} else if exist {
-		slog.Info("[cfg] loading file.", slog.String("filepath", filepath))
-		if content, errFsRead := c.fs.Read(filepath); errFsRead != nil {
-			slog.Error(
-				"[cfg] file cannot be loaded.",
-				slog.Any("error", errFsRead),
-				slog.String("filepath", filepath),
-			)
-			return nil, errFsRead
-		} else {
-			return content, nil
-		}
+		return nil, errFsRead
 	}
-	return nil, nil
+	defer certFile.Close()
+
+	slog.Info("[cfg] loading file.", slog.String("filepath", filepath))
+
+	if content, errFsRead := io.ReadAll(certFile); errFsRead != nil {
+		slog.Error(
+			"[cfg] file cannot be loaded.",
+			slog.Any("error", errFsRead),
+			slog.String("filepath", filepath),
+		)
+		return nil, errFsRead
+	} else {
+		return content, nil
+	}
+}
+
+func defaultFileSystem() (http.FileSystem, error) {
+	if pwd, err := os.Getwd(); err != nil {
+		return nil, err
+	} else {
+		return http.Dir(pwd), nil
+	}
 }

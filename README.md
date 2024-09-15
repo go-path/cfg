@@ -62,7 +62,7 @@ func init() {
 - config.SetString(key string, value string)
 
 ### FileSystem
-- config.SetFileSystem(fs FileSystem)
+- config.SetFileSystem(fs http.FileSystem)
 - config.SetFilePaths(filePaths ...string)
 - config.SetFileExt(ext string, fn UnmarshalFn)
 - config.SetProfileKey(profileKey string)

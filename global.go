@@ -1,6 +1,9 @@
 package cfg
 
-import "time"
+import (
+	"net/http"
+	"time"
+)
 
 var c = New(nil)
 
@@ -24,7 +27,7 @@ func SetString(key string, value string) { c.Set(key, value) }
 func Clone() *Env                        { return c.Clone() }
 func Merge(src *Env)                     { c.Merge(src) }
 
-func SetFileSystem(fs FileSystem)           { c.SetFileSystem(fs) }
+func SetFileSystem(fs http.FileSystem)      { c.SetFileSystem(fs) }
 func SetFilePaths(filePaths ...string)      { c.SetFilePaths(filePaths...) }
 func SetFileExt(ext string, fn UnmarshalFn) { c.SetFileExt(ext, fn) }
 func SetProfileKey(profileKey string)       { c.SetProfileKey(profileKey) }
